@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f6f1">
+  <meta name="description" content="Daybreak is an interactive calendar and deep focus prototype for desktop and mobile.">
+  <title>Daybreak - Calendar and deep focus prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to calendar</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="#" aria-label="Daybreak home">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span>daybreak</span>
+      </a>
+
+      <nav class="nav-list">
+        <button class="nav-item is-active" data-view="Today">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16M8 3v3m8-3v3M6 5h12a2 2 0 0 1 2 2v12H4V7a2 2 0 0 1 2-2Z"/></svg>
+          Today
+        </button>
+        <button class="nav-item" data-view="Planner">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM9 4v16M5 9h14"/></svg>
+          Planner
+        </button>
+        <button class="nav-item" data-view="Focus">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+          Focus
+        </button>
+        <button class="nav-item" data-view="Reflections">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
+          Reflections
+        </button>
+      </nav>
+
+      <section class="calendar-groups" aria-labelledby="calendars-title">
+        <div class="section-label" id="calendars-title">Calendars</div>
+        <label><input type="checkbox" data-calendar="work" checked><span class="dot dot-work"></span>Work</label>
+        <label><input type="checkbox" data-calendar="personal" checked><span class="dot dot-personal"></span>Personal</label>
+        <label><input type="checkbox" data-calendar="family" checked><span class="dot dot-family"></span>Family</label>
+      </section>
+
+      <div class="sidebar-card">
+        <span class="eyebrow">This week</span>
+        <strong>18h 40m</strong>
+        <span>protected focus time</span>
+        <div class="mini-bars" aria-hidden="true">
+          <i style="height:38%"></i><i style="height:68%"></i><i style="height:52%"></i><i style="height:84%"></i><i style="height:64%"></i>
+        </div>
+      </div>
+
+      <button class="profile-button" aria-label="Open profile">
+        <span class="avatar">AS</span>
+        <span><strong>Alex</strong><small>Weekly rhythm 82%</small></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </button>
+    </aside>
+
+    <main id="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Open navigation">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="date-heading">
+          <span class="eyebrow" id="weekdayLabel">Tuesday</span>
+          <h1 id="dateLabel">September 22</h1>
+        </div>
+        <div class="header-actions">
+          <div class="date-nav" aria-label="Change day">
+            <button id="previousDay" aria-label="Previous day"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+            <button id="todayButton">Today</button>
+            <button id="nextDay" aria-label="Next day"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+          </div>
+          <button class="icon-button" id="themeToggle" aria-label="Toggle contrast theme">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-1.2-.24-2.34-.66-3.38A7 7 0 0 1 12 3Z"/></svg>
+          </button>
+          <button class="primary-button" id="addEventButton">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Add block
+          </button>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <section class="day-panel" aria-labelledby="schedule-title">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">Your rhythm</span>
+              <h2 id="schedule-title">A balanced day, by design</h2>
+            </div>
+            <div class="view-switch" role="group" aria-label="Calendar view">
+              <button class="is-active" data-range="day">Day</button>
+              <button data-range="week">Week</button>
+            </div>
+          </div>
+
+          <div class="insight-strip">
+            <div class="sun-arc" aria-hidden="true"><span></span></div>
+            <div>
+              <strong>Peak focus window</strong>
+              <p>Protect 9:30 to 11:30 for your hardest work. Keep the afternoon lighter.</p>
+            </div>
+            <span class="confidence">Pattern match 86%</span>
+          </div>
+
+          <div class="timeline-wrap">
+            <div class="timeline" id="timeline" aria-label="Daily schedule">
+              <div class="time-column" aria-hidden="true">
+                <span style="top:0%">08:00</span>
+                <span style="top:16.66%">09:00</span>
+                <span style="top:33.33%">10:00</span>
+                <span style="top:50%">11:00</span>
+                <span style="top:66.66%">12:00</span>
+                <span style="top:83.33%">13:00</span>
+                <span style="top:100%">14:00</span>
+              </div>
+              <div class="grid-column">
+                <div class="hour-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                <div id="eventLayer"></div>
+                <div class="now-line" id="nowLine"><span>Now</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="right-rail" aria-label="Daily wellbeing and focus tools">
+          <section class="focus-card">
+            <div class="focus-card-head">
+              <span class="eyebrow light">Deep focus</span>
+              <span class="status-dot">Ready</span>
+            </div>
+            <h2>Clear space for what matters.</h2>
+            <p>One task, one timer, and a quiet end point.</p>
+            <div class="focus-time" id="focusTime">50:00</div>
+            <div class="focus-presets" role="group" aria-label="Focus duration">
+              <button data-minutes="25">25</button>
+              <button class="is-active" data-minutes="50">50</button>
+              <button data-minutes="90">90</button>
+            </div>
+            <button class="light-button" id="focusStart">Start focus session</button>
+          </section>
+
+          <section class="breathing-card">
+            <div class="card-title-row">
+              <div>
+                <span class="eyebrow">Reset</span>
+                <h3>One mindful minute</h3>
+              </div>
+              <span class="breathing-orb" id="breathingOrb" aria-hidden="true"></span>
+            </div>
+            <p id="breathingPrompt">A brief pause before your next block.</p>
+            <button class="text-button" id="breathingButton">Begin breathing</button>
+          </section>
+
+          <section class="day-score-card">
+            <div>
+              <span class="eyebrow">Day score</span>
+              <strong>82</strong><small>/100</small>
+            </div>
+            <div class="score-ring" aria-label="Day score 82 out of 100"><span>82%</span></div>
+            <ul>
+              <li><span>Focus protected</span><strong>2h 30m</strong></li>
+              <li><span>Open space</span><strong>1h 10m</strong></li>
+              <li><span>Transitions</span><strong>Healthy</strong></li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="eventModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" id="modalClose" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <span class="eyebrow">New time block</span>
+      <h2 id="modalTitle">What deserves your attention?</h2>
+      <form id="eventForm">
+        <label>Block title<input id="eventTitle" required maxlength="42" placeholder="Example: Research synthesis"></label>
+        <div class="form-row">
+          <label>Start time<input id="eventTime" type="time" value="13:15" required></label>
+          <label>Duration<select id="eventDuration"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60" selected>1 hour</option><option value="90">90 minutes</option></select></label>
+        </div>
+        <fieldset>
+          <legend>Calendar</legend>
+          <label class="choice"><input type="radio" name="eventCalendar" value="work" checked><span class="dot dot-work"></span>Work</label>
+          <label class="choice"><input type="radio" name="eventCalendar" value="personal"><span class="dot dot-personal"></span>Personal</label>
+          <label class="choice"><input type="radio" name="eventCalendar" value="family"><span class="dot dot-family"></span>Family</label>
+        </fieldset>
+        <label class="switch-row"><input type="checkbox" id="focusProtect"><span></span>Protect this block from meeting requests</label>
+        <button class="primary-button full" type="submit">Add to today</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
