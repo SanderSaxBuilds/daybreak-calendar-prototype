@@ -29,7 +29,7 @@ The energy guidance is presented as a personal planning pattern, not a medical c
 
 ## Run locally
 
-Open `src/index.html` directly, or serve `src` from a local static server.
+Open `index.html` directly, or serve the repository root from a local static server.
 
 ## Honest scope
 
