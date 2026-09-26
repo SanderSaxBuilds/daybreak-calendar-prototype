@@ -1,36 +1,35 @@
-# Daybreak prototype
+# Daybreak planning and focus concept
 
-Daybreak is a buyer-specific interactive concept for the Contra brief `Prototype Designs for Calendar + Deep-focus Desktop/Mobile Application` posted by Jeff Sample on September 21, 2026.
+An independent, self-initiated response to the public [Daybreak prototype brief](https://contra.com/opportunity/62BB7XeR-prototype-designs-for-calendar-deep-focus-desktopmobile-application). This concept was not commissioned or endorsed by Daybreak. It uses fictional schedule data and does not connect to external calendars or client accounts.
 
-## What is included
+## What works
 
-- Responsive desktop, tablet and mobile layouts
-- Unified work, personal and family calendar controls
-- Six-hour time-block schedule with protected focus blocks
-- Add-block form with validation and category assignment
-- Working 25, 50 and 90 minute focus timer
-- One-minute breathing interaction
-- Day score and weekly rhythm summaries
-- Day navigation, calendar filtering and contrast control
-- Keyboard focus states, semantic labels and reduced-motion support
+- Navigate between dates and a seven-day agenda, including across month boundaries.
+- Show work, personal and family blocks together or filter each calendar.
+- Add, edit and delete blocks with field validation and a specific overlap warning.
+- Find an available 25-minute interval across all entered calendars, including hidden calendars.
+- Start, pause, resume and end a focus timer or optional quiet timer. A running timer recovers from a page reload.
+- Save the entered plan in this browser. Reset it to the fictional sample plan when desired.
+- Use the desktop, tablet and mobile layouts with keyboard-accessible controls.
 
-## Design direction
+The day summary is calculated from entered blocks. It is not a productivity score, prediction or scientific assessment. Times remain as entered and are not converted across time zones. This proof has no account sync, shared permissions, recurrence, notifications, app blocking or calendar integrations.
 
-The interface uses warm off-white surfaces, dark forest green, soft calendar colors and compact typography. The visual system is meant to feel calm and useful rather than clinical. The day view protects the hardest work during the strongest focus window, while short reset moments sit directly beside the calendar.
+## Run
 
-The energy guidance is presented as a personal planning pattern, not a medical claim. A production version would derive recommendations from user behavior, explicit preferences and opt-in calendar history.
+Serve this folder with a local static web server, then open its root URL in a modern browser. For example, with Node.js installed:
 
-## Product assumptions
+```sh
+node preview-server.mjs
+```
 
-1. Work, personal and family commitments must be visible together without losing ownership cues.
-2. Focus tools should live inside the scheduling context instead of a separate timer product.
-3. Meditation should be lightweight and optional, with clear start and end states.
-4. The product should support a useful daily ritual before expanding into analytics or social features.
+Open `http://127.0.0.1:8765/`. Data is stored in the browser's local storage for this origin. Avoid entering sensitive information in a shared browser profile. To check the date and planning logic:
 
-## Run locally
+```sh
+node --test tests/model.test.mjs
+```
 
-Open `index.html` directly, or serve the repository root from a local static server.
+## Suggested funded first phase
 
-## Honest scope
+This proof is a conversation starter, not a promise to deliver the full public brief without a contract. A paid first phase should establish the intended platforms, calendar integration requirements, target users, existing research, design-source format, revision limit and acceptance criteria. A practical first milestone would cover a tested daily and weekly planning flow, a consistent desktop and mobile component system, and an editable design handoff. The interactive code here can inform that milestone, but it does not replace editable Figma source or a production backend.
 
-This is an independent HTML, CSS and JavaScript prototype created as relevant application proof. It is not commissioned work, a production Daybreak implementation or a claim of prior work for the buyer. It can be translated into a Figma component library after the buyer confirms the desired fidelity, target platforms and existing research.
+The suggested review script is: find a block on another day, add a family commitment, detect and resolve an overlap, reserve a focus interval, pause and resume a timer, then reload and confirm the plan remains. This is a proposed usability exercise. No participant study has been conducted or claimed.

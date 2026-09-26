@@ -1,219 +1,349 @@
-const initialEvents = [
-  { id: 1, title: "Morning review", start: "08:15", duration: 35, calendar: "personal", protected: false },
-  { id: 2, title: "Product direction", start: "09:10", duration: 45, calendar: "work", protected: false },
-  { id: 3, title: "Deep focus: prototype", start: "10:05", duration: 90, calendar: "work", protected: true },
-  { id: 4, title: "Lunch with Mia", start: "12:00", duration: 45, calendar: "family", protected: false },
-  { id: 5, title: "Walking reset", start: "13:00", duration: 30, calendar: "personal", protected: false }
-]
+import { CALENDARS, dateKey, parseDateKey, shiftDate, weekDates, timeMinutes, minutesToTime, formatClock, validateEvent, overlappingEvents, eventsForDate, dailySummary, safeStoredEvents, findFocusSlot } from "./model.mjs";
 
-let events = [...initialEvents]
-let selectedDate = new Date(2026, 8, 22)
-let timerSeconds = 50 * 60
-let timerId = null
-let breathingId = null
+const STORE_KEY = "daybreak.phase-one-proof.v1";
+const $ = selector => document.querySelector(selector);
+const $$ = selector => [...document.querySelectorAll(selector)];
+const todayKey = () => dateKey(new Date());
+const formatDate = (key, options = { weekday: "long", month: "long", day: "numeric", year: "numeric" }) => parseDateKey(key).toLocaleDateString("en-US", options);
+const formatDuration = minutes => minutes >= 60 ? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ""}` : `${minutes}m`;
 
-const eventLayer = document.querySelector("#eventLayer")
-const dateLabel = document.querySelector("#dateLabel")
-const weekdayLabel = document.querySelector("#weekdayLabel")
-const modal = document.querySelector("#eventModal")
-const eventForm = document.querySelector("#eventForm")
-const toast = document.querySelector("#toast")
-const focusTime = document.querySelector("#focusTime")
-const focusStart = document.querySelector("#focusStart")
-const breathingPrompt = document.querySelector("#breathingPrompt")
-const breathingOrb = document.querySelector("#breathingOrb")
-
-function minutesFromStart(time) {
-  const [hours, minutes] = time.split(":").map(Number)
-  return (hours - 8) * 60 + minutes
+function samplePlan(anchor) {
+  const block = (id, offset, title, start, duration, calendar, protectedTime = false) => ({ id, date: shiftDate(anchor, offset), title, start, duration, calendar, protected: protectedTime });
+  return [
+    block("sample-1", 0, "Plan the product story", "09:00", 60, "work", true),
+    block("sample-2", 0, "Review sketches", "10:00", 30, "work"),
+    block("sample-3", 0, "Lunch break", "12:00", 45, "personal"),
+    block("sample-4", 0, "School pickup", "15:30", 30, "family"),
+    block("sample-5", 0, "Team check-in", "16:15", 30, "work"),
+    block("sample-6", 1, "Prepare presentation", "09:00", 60, "work", true),
+    block("sample-7", 1, "Family time", "15:30", 30, "family"),
+    block("sample-8", 7, "Review next steps", "11:00", 45, "work"),
+  ];
 }
 
-function formatTime(time) {
-  const [hour, minute] = time.split(":").map(Number)
-  const suffix = hour >= 12 ? "PM" : "AM"
-  const displayHour = hour % 12 || 12
-  return `${displayHour}:${String(minute).padStart(2, "0")} ${suffix}`
+function initialState() {
+  const anchor = todayKey();
+  return { schemaVersion: 1, revision: 0, sampleAnchorDate: anchor, events: samplePlan(anchor), selectedDate: anchor, view: "day", filters: [...CALENDARS], focusDuration: 50, meditationDuration: 2, session: null };
 }
 
-function renderEvents() {
-  const activeCalendars = [...document.querySelectorAll("[data-calendar]:checked")].map(input => input.dataset.calendar)
-  eventLayer.innerHTML = ""
-  events
-    .filter(event => activeCalendars.includes(event.calendar))
-    .sort((a, b) => a.start.localeCompare(b.start))
-    .forEach(event => {
-      const top = Math.max(0, minutesFromStart(event.start) / 360 * 100)
-      const height = Math.max(7, event.duration / 360 * 100)
-      const card = document.createElement("button")
-      card.className = `event-card ${event.calendar}`
-      card.style.top = `${top}%`
-      card.style.height = `${height}%`
-      card.dataset.id = event.id
-      card.setAttribute("aria-label", `${event.title}, ${formatTime(event.start)}, ${event.duration} minutes`)
-      card.innerHTML = `
-        <strong>${escapeHtml(event.title)}</strong>
-        <span>${formatTime(event.start)} · ${event.duration} min</span>
-        ${event.protected ? '<svg class="protected" viewBox="0 0 24 24" aria-label="Protected time"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v9H5z"/></svg>' : ""}
-      `
-      card.addEventListener("click", () => showToast(`${event.title} is ready to edit`))
-      eventLayer.append(card)
-    })
-}
-
-function escapeHtml(value) {
-  const element = document.createElement("div")
-  element.textContent = value
-  return element.innerHTML
-}
-
-function updateDate() {
-  weekdayLabel.textContent = selectedDate.toLocaleDateString("en-US", { weekday: "long" })
-  dateLabel.textContent = selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric" })
-}
-
-function showToast(message) {
-  toast.textContent = message
-  toast.classList.add("is-visible")
-  clearTimeout(showToast.timeout)
-  showToast.timeout = setTimeout(() => toast.classList.remove("is-visible"), 2600)
-}
-
-function openModal() {
-  modal.hidden = false
-  document.body.style.overflow = "hidden"
-  setTimeout(() => document.querySelector("#eventTitle").focus(), 0)
-}
-
-function closeModal() {
-  modal.hidden = true
-  document.body.style.overflow = ""
-  document.querySelector("#addEventButton").focus()
-}
-
-document.querySelector("#addEventButton").addEventListener("click", openModal)
-document.querySelector("#modalClose").addEventListener("click", closeModal)
-modal.addEventListener("click", event => { if (event.target === modal) closeModal() })
-document.addEventListener("keydown", event => { if (event.key === "Escape" && !modal.hidden) closeModal() })
-
-eventForm.addEventListener("submit", event => {
-  event.preventDefault()
-  const title = document.querySelector("#eventTitle").value.trim()
-  const start = document.querySelector("#eventTime").value
-  const duration = Number(document.querySelector("#eventDuration").value)
-  const calendar = document.querySelector("[name=eventCalendar]:checked").value
-  const protectedTime = document.querySelector("#focusProtect").checked
-  events.push({ id: Date.now(), title, start, duration, calendar, protected: protectedTime })
-  renderEvents()
-  eventForm.reset()
-  document.querySelector("#eventTime").value = "13:15"
-  document.querySelector("#eventDuration").value = "60"
-  closeModal()
-  showToast("Time block added to your day")
-})
-
-document.querySelectorAll("[data-calendar]").forEach(input => input.addEventListener("change", renderEvents))
-
-document.querySelector("#previousDay").addEventListener("click", () => {
-  selectedDate.setDate(selectedDate.getDate() - 1)
-  updateDate()
-  showToast("Previous day loaded")
-})
-
-document.querySelector("#nextDay").addEventListener("click", () => {
-  selectedDate.setDate(selectedDate.getDate() + 1)
-  updateDate()
-  showToast("Next day loaded")
-})
-
-document.querySelector("#todayButton").addEventListener("click", () => {
-  selectedDate = new Date(2026, 8, 22)
-  updateDate()
-  showToast("Back to today")
-})
-
-document.querySelectorAll(".view-switch button").forEach(button => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".view-switch button").forEach(item => item.classList.remove("is-active"))
-    button.classList.add("is-active")
-    showToast(button.dataset.range === "week" ? "Week view mapped for the next prototype pass" : "Day view active")
-  })
-})
-
-document.querySelectorAll(".nav-item").forEach(button => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("is-active"))
-    button.classList.add("is-active")
-    showToast(`${button.dataset.view} workspace selected`)
-  })
-})
-
-document.querySelectorAll(".focus-presets button").forEach(button => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".focus-presets button").forEach(item => item.classList.remove("is-active"))
-    button.classList.add("is-active")
-    clearInterval(timerId)
-    timerId = null
-    timerSeconds = Number(button.dataset.minutes) * 60
-    focusStart.textContent = "Start focus session"
-    updateTimer()
-  })
-})
-
-function updateTimer() {
-  const minutes = Math.floor(timerSeconds / 60)
-  const seconds = timerSeconds % 60
-  focusTime.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
-}
-
-focusStart.addEventListener("click", () => {
-  if (timerId) {
-    clearInterval(timerId)
-    timerId = null
-    focusStart.textContent = "Resume focus session"
-    showToast("Focus session paused")
-    return
+let storageProblem = "";
+let readOnlyConflict = false;
+function readState() {
+  let raw;
+  try {
+    raw = localStorage.getItem(STORE_KEY);
+  } catch (error) {
+    storageProblem = "Changes are available for this visit only. This browser could not save them.";
+    return initialState();
   }
-  focusStart.textContent = "Pause session"
-  showToast("Notifications muted for this prototype session")
-  timerId = setInterval(() => {
-    timerSeconds -= 1
-    updateTimer()
-    if (timerSeconds <= 0) {
-      clearInterval(timerId)
-      timerId = null
-      focusStart.textContent = "Start another session"
-      showToast("Focus session complete")
-    }
-  }, 1000)
-})
-
-document.querySelector("#breathingButton").addEventListener("click", event => {
-  if (breathingId) {
-    clearInterval(breathingId)
-    breathingId = null
-    breathingOrb.classList.remove("is-breathing")
-    breathingPrompt.textContent = "A brief pause before your next block."
-    event.currentTarget.textContent = "Begin breathing"
-    return
+  if (raw === null) {
+    const fresh = initialState();
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(fresh)); }
+    catch (error) { storageProblem = "Changes are available for this visit only. This browser could not save them."; }
+    return fresh;
   }
-  const prompts = ["Breathe in slowly", "Hold with ease", "Breathe out fully", "Rest for a moment"]
-  let index = 0
-  breathingOrb.classList.add("is-breathing")
-  breathingPrompt.textContent = prompts[0]
-  event.currentTarget.textContent = "End exercise"
-  breathingId = setInterval(() => {
-    index = (index + 1) % prompts.length
-    breathingPrompt.textContent = prompts[index]
-  }, 4000)
-})
+  try {
+    const value = JSON.parse(raw);
+    if (!value || value.schemaVersion !== 1 || !Array.isArray(value.events) || !parseDateKey(value.selectedDate) || !["day", "week"].includes(value.view) || !Array.isArray(value.filters)) throw new Error("Saved plan cannot be opened");
+    const events = safeStoredEvents(value.events);
+    if (events.length !== value.events.length) throw new Error("Saved plan contains invalid blocks");
+    return { ...value, events, filters: value.filters.filter(name => CALENDARS.includes(name)), focusDuration: [25, 50, 90].includes(value.focusDuration) ? value.focusDuration : 50, meditationDuration: [1, 2, 5].includes(value.meditationDuration) ? value.meditationDuration : 2, session: validSession(value.session) ? value.session : null };
+  } catch (error) {
+    storageProblem = "This saved plan could not be opened. The stored copy has not been changed. Use Reset sample plan only if you want to replace it.";
+    readOnlyConflict = true;
+    return { ...initialState(), events: [] };
+  }
+}
 
-document.querySelector("#themeToggle").addEventListener("click", () => {
-  document.body.classList.toggle("high-contrast")
-  showToast(document.body.classList.contains("high-contrast") ? "Higher contrast enabled" : "Soft contrast enabled")
-})
+function validSession(session) {
+  return session && ["focus", "meditation"].includes(session.kind) && ["running", "paused", "finished"].includes(session.status) && Number.isFinite(session.remainingMs) && Number.isFinite(session.durationMs);
+}
 
-document.querySelector("#mobileMenu").addEventListener("click", () => document.querySelector(".sidebar").classList.toggle("is-open"))
+let state = readState();
+let toastTimer;
+let sessionInterval;
+let suggestion = null;
+let modalSnapshot = "";
+let modalReturnFocus = null;
+let overlapConfirmed = false;
 
-renderEvents()
-updateDate()
-updateTimer()
+function showStorageProblem(message) {
+  storageProblem = message;
+  $("#storageMessage").textContent = message;
+  $("#storageBanner").hidden = false;
+}
+if (storageProblem) showStorageProblem(storageProblem);
+
+function persist() {
+  if (readOnlyConflict) { showStorageProblem("The plan changed in another tab or could not be opened. Reload before making more changes."); return false; }
+  try {
+    state.revision += 1;
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    $("#storageBanner").hidden = true;
+    storageProblem = "";
+    return true;
+  } catch (error) {
+    showStorageProblem("Changes are available for this visit only. This browser could not save them.");
+    return false;
+  }
+}
+
+function announce(message) {
+  const toast = $("#toast");
+  toast.textContent = message;
+  toast.classList.add("is-visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3300);
+}
+
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function visibleCalendars() { return state.filters; }
+
+function renderHeader() {
+  const date = parseDateKey(state.selectedDate);
+  $("#weekdayLabel").textContent = date.toLocaleDateString("en-US", { weekday: "long" });
+  $("#plannerHeading").textContent = state.view === "day" ? "Your day" : "Your week";
+  $("#dateLabel").textContent = state.view === "day" ? formatDate(state.selectedDate) : `${formatDate(weekDates(state.selectedDate)[0], { month: "short", day: "numeric" })} to ${formatDate(weekDates(state.selectedDate)[6], { month: "short", day: "numeric", year: "numeric" })}`;
+  $("#jumpDate").value = state.selectedDate;
+  $("#dayView").hidden = state.view !== "day";
+  $("#weekView").hidden = state.view !== "week";
+  $("#dayViewButton").classList.toggle("is-active", state.view === "day");
+  $("#weekViewButton").classList.toggle("is-active", state.view === "week");
+  $("#dayViewButton").setAttribute("aria-pressed", String(state.view === "day"));
+  $("#weekViewButton").setAttribute("aria-pressed", String(state.view === "week"));
+  $("#navToday").classList.toggle("is-current", state.view === "day");
+  $("#navWeek").classList.toggle("is-current", state.view === "week");
+  $("#navToday").removeAttribute("aria-current"); $("#navWeek").removeAttribute("aria-current");
+  (state.view === "day" ? $("#navToday") : $("#navWeek")).setAttribute("aria-current", "page");
+  $$('[data-calendar]').forEach(input => { input.checked = state.filters.includes(input.dataset.calendar); });
+}
+
+function eventRange(event) {
+  return `${formatClock(event.start)} to ${formatClock(minutesToTime(timeMinutes(event.start) + event.duration))}`;
+}
+
+function renderDay() {
+  const all = eventsForDate(state.events, state.selectedDate);
+  const shown = eventsForDate(state.events, state.selectedDate, visibleCalendars());
+  const summary = dailySummary(state.events, state.selectedDate);
+  const stats = $("#dayStats"); stats.replaceChildren();
+  [["blocks", String(summary.blocks)], ["planned", formatDuration(summary.plannedMinutes)], ["protected", formatDuration(summary.protectedMinutes)]].forEach(([label, count]) => { const chip = element("span", "stat-chip"); chip.append(element("strong", "", count), document.createTextNode(label)); stats.append(chip); });
+  $("#visibleCount").textContent = `${shown.length} of ${all.length} blocks shown`;
+  const agenda = $("#dayAgenda"); agenda.replaceChildren();
+  shown.forEach(item => {
+    const conflicts = overlappingEvents(item, state.events);
+    const card = element("button", `agenda-card ${item.calendar}`);
+    card.type = "button";
+    card.setAttribute("aria-label", `${item.title}, ${formatDate(item.date)}, ${eventRange(item)}, ${item.calendar} calendar${conflicts.length ? ", overlaps another block" : ""}. Edit block.`);
+    const time = element("span", "agenda-time", formatClock(item.start));
+    time.append(element("small", "", formatClock(minutesToTime(timeMinutes(item.start) + item.duration))));
+    const body = element("span", "agenda-body"); body.append(element("strong", "", item.title), element("span", "", `${capitalize(item.calendar)} · ${formatDuration(item.duration)}`));
+    card.append(time, body);
+    if (conflicts.length) card.append(element("span", "agenda-badge", `Overlaps ${conflicts.length} block${conflicts.length > 1 ? "s" : ""}`));
+    else if (item.protected) card.append(element("span", "agenda-badge focus", "Protected focus"));
+    card.addEventListener("click", () => openEditor(item));
+    agenda.append(card);
+  });
+  $("#dayEmpty").hidden = shown.length > 0;
+  if (!shown.length) {
+    const allHidden = !state.filters.length;
+    $("#emptyTitle").textContent = allHidden ? "All calendars are hidden." : all.length ? "No blocks match these calendars." : `Nothing planned for ${formatDate(state.selectedDate, { weekday: "long", month: "long", day: "numeric" })}.`;
+    $("#emptyDescription").textContent = all.length ? "The blocks are still saved. Change your filters to see them." : "Add a block when you know what needs your attention.";
+    $("#showAllCalendars").hidden = !all.length;
+  }
+  $("#summaryTitle").textContent = state.selectedDate === todayKey() ? "Today's plan" : "Selected day's plan";
+  const rows = $("#summaryRows"); rows.replaceChildren();
+  [["Blocks entered", String(summary.blocks)], ["Planned time", formatDuration(summary.plannedMinutes)], ["Protected time", formatDuration(summary.protectedMinutes)]].forEach(([label, value]) => { const row = element("div", "summary-row"); row.append(element("span", "", label), element("strong", "", value)); rows.append(row); });
+}
+
+function renderWeek() {
+  const grid = $("#weekGrid"); grid.replaceChildren();
+  weekDates(state.selectedDate).forEach(key => {
+    const day = element("button", `week-day${key === state.selectedDate ? " is-selected" : ""}`);
+    day.type = "button";
+    day.setAttribute("aria-label", `Open ${formatDate(key)} in day view`);
+    day.append(element("h3", "", formatDate(key, { weekday: "long" })), element("span", "day-number", formatDate(key, { month: "short", day: "numeric" })));
+    const blocks = eventsForDate(state.events, key, visibleCalendars());
+    if (!blocks.length) day.append(element("span", "week-empty", "No visible blocks"));
+    blocks.forEach(item => { const row = element("span", `week-event ${item.calendar}`, item.title); row.prepend(element("small", "", formatClock(item.start))); day.append(row); });
+    day.addEventListener("click", () => { state.selectedDate = key; state.view = "day"; persist(); render(); announce(`Showing ${formatDate(key)}.`); });
+    grid.append(day);
+  });
+}
+
+function capitalize(value) { return value[0].toUpperCase() + value.slice(1); }
+function render() {
+  if (suggestion && suggestion.revision !== state.revision) {
+    suggestion = null;
+    $("#focusSuggestion").textContent = "Find a clear interval in your entered plan. Hidden calendars still count.";
+    $("#addSuggestedBlock").hidden = true;
+  }
+  renderHeader(); renderDay(); renderWeek(); renderSession();
+}
+
+function chooseView(view) { state.view = view; persist(); render(); }
+$("#dayViewButton").addEventListener("click", () => chooseView("day"));
+$("#weekViewButton").addEventListener("click", () => chooseView("week"));
+$("#navToday").addEventListener("click", () => { chooseView("day"); closeMobileMenu(); });
+$("#navWeek").addEventListener("click", () => { chooseView("week"); closeMobileMenu(); });
+$("#previousDate").addEventListener("click", () => { state.selectedDate = shiftDate(state.selectedDate, state.view === "week" ? -7 : -1); persist(); render(); });
+$("#nextDate").addEventListener("click", () => { state.selectedDate = shiftDate(state.selectedDate, state.view === "week" ? 7 : 1); persist(); render(); });
+$("#todayDate").addEventListener("click", () => { state.selectedDate = todayKey(); persist(); render(); });
+$("#jumpDate").addEventListener("change", event => { if (!parseDateKey(event.target.value)) return; state.selectedDate = event.target.value; persist(); render(); });
+$$('[data-calendar]').forEach(input => input.addEventListener("change", () => { state.filters = $$('[data-calendar]:checked').map(item => item.dataset.calendar); persist(); render(); }));
+$("#showAllCalendars").addEventListener("click", () => { state.filters = [...CALENDARS]; persist(); render(); });
+$("#mobileMenu").addEventListener("click", () => { const open = $("#sidebar").classList.toggle("is-open"); $("#mobileMenu").setAttribute("aria-expanded", String(open)); });
+function closeMobileMenu() { $("#sidebar").classList.remove("is-open"); $("#mobileMenu").setAttribute("aria-expanded", "false"); }
+
+function formValue() {
+  return { id: $("#eventId").value || crypto.randomUUID(), title: $("#eventTitle").value, date: $("#eventDate").value, start: $("#eventStart").value, duration: Number($("#eventDuration").value), calendar: $("#eventCalendar").value, protected: $("#eventProtected").checked };
+}
+function formSnapshot() { return JSON.stringify({ title: $("#eventTitle").value, date: $("#eventDate").value, start: $("#eventStart").value, duration: $("#eventDuration").value, calendar: $("#eventCalendar").value, protected: $("#eventProtected").checked }); }
+function defaultStart() { return "09:00"; }
+function openEditor(item = null, date = state.selectedDate, start = defaultStart(), protectedTime = false) {
+  modalReturnFocus = document.activeElement;
+  overlapConfirmed = false;
+  $("#eventId").value = item?.id ?? "";
+  $("#eventTitle").value = item?.title ?? "";
+  $("#eventDate").value = item?.date ?? date;
+  $("#eventStart").value = item?.start ?? start;
+  $("#eventDuration").value = String(item?.duration ?? 30);
+  $("#eventCalendar").value = item?.calendar ?? "work";
+  $("#eventProtected").checked = item?.protected ?? protectedTime;
+  $("#dialogTitle").textContent = item ? "Edit this block." : "Make room for something.";
+  $("#saveEvent").textContent = item ? "Save changes" : "Add block";
+  $("#deleteEvent").hidden = !item;
+  $("#overlapWarning").hidden = true;
+  $$(".field-error").forEach(node => node.textContent = "");
+  $$("#eventForm input, #eventForm select").forEach(node => node.removeAttribute("aria-invalid"));
+  $("#eventDialog").hidden = false;
+  modalSnapshot = formSnapshot();
+  document.body.style.overflow = "hidden";
+  $(".shell").inert = true;
+  $("#eventTitle").focus();
+}
+function closeEditor(force = false) {
+  if (!force && formSnapshot() !== modalSnapshot && !window.confirm("Discard your unsaved changes?")) return;
+  $("#eventDialog").hidden = true;
+  document.body.style.overflow = "";
+  $(".shell").inert = false;
+  (modalReturnFocus?.isConnected ? modalReturnFocus : $("#addEvent")).focus();
+}
+$("#addEvent").addEventListener("click", () => openEditor());
+$("#emptyAdd").addEventListener("click", () => openEditor());
+$("#dialogClose").addEventListener("click", () => closeEditor());
+$("#eventDialog").addEventListener("click", event => { if (event.target === $("#eventDialog")) closeEditor(); });
+document.addEventListener("keydown", event => {
+  if ($( "#eventDialog").hidden) return;
+  if (event.key === "Escape") { event.preventDefault(); closeEditor(); }
+  if (event.key !== "Tab") return;
+  const controls = $$("#eventDialog button, #eventDialog input:not([type=hidden]), #eventDialog select").filter(node => !node.hidden && !node.disabled);
+  if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1).focus(); }
+  else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0].focus(); }
+});
+$("#eventForm").addEventListener("input", () => { overlapConfirmed = false; $("#saveEvent").textContent = $("#eventId").value ? "Save changes" : "Add block"; });
+$("#eventForm").addEventListener("submit", event => {
+  event.preventDefault();
+  if (readOnlyConflict) { showStorageProblem("Reload before editing this plan. Its saved copy was not changed."); return; }
+  const result = validateEvent(formValue());
+  $$(".field-error").forEach(node => node.textContent = "");
+  if (!result.ok) {
+    for (const [field, message] of Object.entries(result.errors)) { const error = $(`#${field}Error`); if (error) error.textContent = message; const input = $(`#event${capitalize(field)}`); if (input) input.setAttribute("aria-invalid", "true"); }
+    const first = Object.keys(result.errors)[0]; $(`#event${capitalize(first)}`)?.focus(); return;
+  }
+  const conflicts = overlappingEvents(result.value, state.events);
+  if (conflicts.length && !overlapConfirmed) {
+    $("#overlapWarning").textContent = `Overlaps ${conflicts.map(item => `${item.title} (${capitalize(item.calendar)}, ${eventRange(item)})`).join(" and ")}. This may be intentional. Review before saving.`;
+    $("#overlapWarning").hidden = false;
+    $("#saveEvent").textContent = "Save with overlap";
+    overlapConfirmed = true;
+    return;
+  }
+  const existing = state.events.findIndex(item => item.id === result.value.id);
+  if (existing >= 0) state.events[existing] = result.value;
+  else state.events.push(result.value);
+  state.selectedDate = result.value.date;
+  const saved = persist();
+  closeEditor(true); render();
+  announce(saved ? "Block saved in this browser." : "Block changed for this visit only. Browser storage is unavailable.");
+});
+$("#deleteEvent").addEventListener("click", () => {
+  const id = $("#eventId").value;
+  const item = state.events.find(event => event.id === id);
+  if (!item || !window.confirm(`Delete “${item.title}” on ${formatDate(item.date)}?`)) return;
+  state.events = state.events.filter(event => event.id !== id);
+  const saved = persist(); closeEditor(true); render(); announce(saved ? "Block deleted." : "Block removed for this visit only.");
+});
+
+$("#findFocusButton").addEventListener("click", () => {
+  const now = new Date();
+  const notBefore = state.selectedDate === todayKey() ? now.getHours() * 60 + now.getMinutes() : 0;
+  const start = findFocusSlot(state.events, state.selectedDate, 25, { windowStart: 9 * 60, windowEnd: 18 * 60, notBefore });
+  suggestion = start === null ? null : { date: state.selectedDate, start: minutesToTime(start), revision: state.revision };
+  $("#focusSuggestion").textContent = suggestion ? `Available in this entered plan: ${formatClock(suggestion.start)} to ${formatClock(minutesToTime(start + 25))}. This checks all three calendars, even hidden ones, and does not account for travel or missing commitments.` : "No 25-minute gap remains between 9:00 AM and 6:00 PM in this entered plan. Try another day.";
+  $("#addSuggestedBlock").hidden = !suggestion;
+});
+$("#addSuggestedBlock").addEventListener("click", () => { if (suggestion) openEditor(null, suggestion.date, suggestion.start, true); });
+
+function currentRemaining(session, now = Date.now()) { return session.status === "running" ? Math.max(0, session.deadlineMs - now) : session.remainingMs; }
+function clockText(ms) { const seconds = Math.ceil(Math.max(0, ms) / 1000); return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
+function finishExpiredSession() {
+  if (state.session?.status === "running" && currentRemaining(state.session) <= 0) {
+    state.session.status = "finished"; state.session.remainingMs = 0; state.session.deadlineMs = null;
+    persist(); announce("Timer finished. Continue when you're ready.");
+  }
+}
+function renderSession() {
+  finishExpiredSession();
+  const session = state.session;
+  const focusActive = session?.kind === "focus" && session.status !== "finished";
+  const meditationActive = session?.kind === "meditation" && session.status !== "finished";
+  $("#timerDisplay").textContent = clockText(focusActive ? currentRemaining(session) : state.focusDuration * 60_000);
+  $("#meditationDisplay").textContent = clockText(meditationActive ? currentRemaining(session) : state.meditationDuration * 60_000);
+  $("#timerState").textContent = focusActive ? capitalize(session.status) : session?.kind === "focus" && session.status === "finished" ? "Finished" : "Ready";
+  $("#timerStart").textContent = focusActive ? session.status === "running" ? "Pause focus" : "Resume focus" : "Start focus";
+  $("#breathingButton").textContent = meditationActive ? session.status === "running" ? "Pause quiet timer" : "Resume quiet timer" : "Start quiet timer";
+  $("#endMeditation").hidden = !meditationActive;
+  $("#breathingOrb").classList.toggle("is-inhaling", meditationActive && session.status === "running");
+  $$('[data-minutes]').forEach(button => button.classList.toggle("is-active", Number(button.dataset.minutes) === state.focusDuration));
+  $$('[data-meditation-minutes]').forEach(button => button.classList.toggle("is-active", Number(button.dataset.meditationMinutes) === state.meditationDuration));
+}
+function setDuration(kind, duration) {
+  if (state.session && state.session.status !== "finished") { announce("End the current timer before changing duration."); return; }
+  if (kind === "focus") state.focusDuration = duration; else state.meditationDuration = duration;
+  persist(); renderSession();
+}
+$$('[data-minutes]').forEach(button => button.addEventListener("click", () => setDuration("focus", Number(button.dataset.minutes))));
+$$('[data-meditation-minutes]').forEach(button => button.addEventListener("click", () => setDuration("meditation", Number(button.dataset.meditationMinutes))));
+function handleSession(kind) {
+  const current = state.session;
+  if (current && current.status !== "finished" && current.kind !== kind) { announce(`End your ${current.kind} timer before starting another.`); return; }
+  if (!current || current.status === "finished") {
+    const durationMs = (kind === "focus" ? state.focusDuration : state.meditationDuration) * 60_000;
+    state.session = { id: crypto.randomUUID(), kind, status: "running", durationMs, remainingMs: durationMs, deadlineMs: Date.now() + durationMs };
+    announce(`${capitalize(kind)} timer started.`);
+  } else if (current.status === "running") {
+    current.remainingMs = currentRemaining(current); current.deadlineMs = null; current.status = "paused"; announce("Timer paused.");
+  } else {
+    current.deadlineMs = Date.now() + current.remainingMs; current.status = "running"; announce("Timer resumed.");
+  }
+  persist(); renderSession();
+}
+$("#timerStart").addEventListener("click", () => handleSession("focus"));
+$("#breathingButton").addEventListener("click", () => handleSession("meditation"));
+$("#endMeditation").addEventListener("click", () => { if (state.session?.kind === "meditation") { state.session = null; persist(); renderSession(); announce("Quiet timer ended."); } });
+$("#timerReset").addEventListener("click", () => { if (state.session?.kind === "focus") { state.session = null; persist(); renderSession(); announce("Focus timer ended."); } });
+sessionInterval = setInterval(renderSession, 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) renderSession(); });
+
+$("#retrySave").addEventListener("click", () => { if (readOnlyConflict) { location.reload(); return; } if (persist()) announce("Plan saved in this browser."); });
+$("#resetDemo").addEventListener("click", () => { if (!window.confirm("Replace this browser's Daybreak plan with fictional sample blocks?")) return; readOnlyConflict = false; state = initialState(); suggestion = null; const saved = persist(); render(); announce(saved ? "Sample plan restored." : "Sample plan restored for this visit only."); });
+window.addEventListener("storage", event => { if (event.key === STORE_KEY) { readOnlyConflict = true; showStorageProblem("The plan changed in another tab. Reload before making more changes."); } });
+
+render();
