@@ -111,6 +111,8 @@ function renderHeader() {
   $("#plannerHeading").textContent = state.view === "day" ? "Your day" : "Your week";
   $("#dateLabel").textContent = state.view === "day" ? formatDate(state.selectedDate) : `${formatDate(weekDates(state.selectedDate)[0], { month: "short", day: "numeric" })} to ${formatDate(weekDates(state.selectedDate)[6], { month: "short", day: "numeric", year: "numeric" })}`;
   $("#jumpDate").value = state.selectedDate;
+  $("#previousDate").setAttribute("aria-label", state.view === "week" ? "Previous week" : "Previous day");
+  $("#nextDate").setAttribute("aria-label", state.view === "week" ? "Next week" : "Next day");
   $("#dayView").hidden = state.view !== "day";
   $("#weekView").hidden = state.view !== "week";
   $("#dayViewButton").classList.toggle("is-active", state.view === "day");
