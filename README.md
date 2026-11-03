@@ -2,6 +2,8 @@
 
 An independent, self-initiated response to the public [Daybreak prototype brief](https://contra.com/opportunity/62BB7XeR-prototype-designs-for-calendar-deep-focus-desktopmobile-application). This concept was not commissioned or endorsed by Daybreak. It uses a fictional sample week and does not connect to external calendars or client accounts.
 
+Live demo: https://sandersaxbuilds.github.io/daybreak-calendar-prototype/
+
 ## What works
 
 - A day view with planned time, protected focus time and the longest open stretch, a timeline strip of the day and a schedule that shows open gaps between blocks. Any gap of 45 minutes or more can be protected as focus time in one step.
@@ -33,3 +35,11 @@ node --test tests/model.test.mjs tests/backup.test.mjs
 This proof is a conversation starter, not a promise to deliver the full public brief without a contract. A paid first phase should establish the intended platforms, calendar integration requirements, target users, existing research, design-source format, revision limit and acceptance criteria. A practical first milestone would cover a tested daily and weekly planning flow, a consistent desktop and mobile component system, and an editable design handoff. The interactive code here can inform that milestone, but it does not replace editable Figma source or a production backend.
 
 The suggested review script is: find a block on another day, add a family commitment, detect and resolve an overlap, protect an open gap as focus time, pause and resume a timer, then reload and confirm the plan remains. This is a proposed usability exercise. No participant study has been conducted or claimed.
+
+## Contact
+
+More work by Alexandr Khrustalev in the [portfolio](https://sandersaxbuilds.github.io/selected-work/). Contact on Telegram [@sandersax](https://t.me/sandersax).
+
+## License
+
+MIT. See LICENSE.
